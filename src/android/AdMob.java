@@ -38,7 +38,7 @@ public class AdMob extends CordovaPlugin {
      * Common tag used for logging statements.
      */
     private static final String TAG = "AdMob";
-
+    public int shouldLoadAds =1;
     public final AdMobConfig config = new AdMobConfig();
 
     private BannerExecutor bannerExecutor = null;
@@ -204,13 +204,39 @@ public class AdMob extends CordovaPlugin {
 
         return builder.build();
     }
+    @Override
+    public void onStart() {
+        super.onStart();
+       this.shouldLoadAds = 1;
+        Log.i("onStart", "onStartonStart");
+    }
+
+    @Override
+    public void onStop() {
+        this.shouldLoadAds = 0;
+        Log.i("onStop", "onStoponStop");
+    }
+
+    public void setHealth(int monsterhealth){
+        Log.i("setHealth",  String.valueOf(monsterhealth));
+        shouldLoadAds = monsterhealth;
+    }
+
 
 
     @Override
     public void onPause(boolean multitasking) {
+        this.shouldLoadAds = 0;
+        Log.i("ONpause", "testeONpauseinterstitial");
         if (bannerExecutor != null) {
             bannerExecutor.pauseAd();
         }
+
+       if (interstitialExecutor != null) {
+            Log.i("onPause", "destroyinterstitialExecutor");
+           interstitialExecutor.destroy();
+            interstitialExecutor = null;
+       }
         super.onPause(multitasking);
     }
 
@@ -223,8 +249,11 @@ public class AdMob extends CordovaPlugin {
         }
     }
 
+
+
     @Override
     public void onDestroy() {
+        Log.i("onDestroy", "onDestroyinterstitialExecutor");
         if (bannerExecutor != null) {
             bannerExecutor.destroy();
             bannerExecutor = null;

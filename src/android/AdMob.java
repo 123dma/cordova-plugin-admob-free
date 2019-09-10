@@ -2,20 +2,17 @@ package name.ratson.cordova.admob;
 
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.annotation.NonNull;
 import android.util.Log;
 
 import com.google.ads.mediation.admob.AdMobAdapter;
 import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.ads.InterstitialAd;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
 import org.apache.cordova.PluginResult;
-import org.apache.cordova.PluginResult.Status;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -24,9 +21,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
 
-import name.ratson.cordova.admob.banner.BannerExecutor;
 import name.ratson.cordova.admob.interstitial.InterstitialExecutor;
-import name.ratson.cordova.admob.rewardvideo.RewardVideoExecutor;
+
 
 /**
  * This class represents the native implementation for the AdMob Cordova plugin.
@@ -34,24 +30,23 @@ import name.ratson.cordova.admob.rewardvideo.RewardVideoExecutor;
  * The Google AdMob SDK is a dependency for this plugin.
  */
 public class AdMob extends CordovaPlugin {
+    private InterstitialAd interstitialAd;
+    private CallbackContext readyCallbackContext = null;
     /**
      * Common tag used for logging statements.
      */
     private static final String TAG = "AdMob";
-    public int shouldLoadAds =1;
+    public boolean shouldLoadAds =true;
+
     public final AdMobConfig config = new AdMobConfig();
 
-    private BannerExecutor bannerExecutor = null;
     private InterstitialExecutor interstitialExecutor = null;
-    private RewardVideoExecutor rewardVideoExecutor = null;
 
-    private boolean isGpsAvailable = false;
+
 
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
-        isGpsAvailable = (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(cordova.getActivity()) == ConnectionResult.SUCCESS);
-        Log.w(TAG, String.format("isGooglePlayServicesAvailable: %s", isGpsAvailable ? "true" : "false"));
     }
 
     /**
@@ -66,15 +61,11 @@ public class AdMob extends CordovaPlugin {
      */
     @Override
     public boolean execute(String action, JSONArray inputs, CallbackContext callbackContext) throws JSONException {
-        if (bannerExecutor == null) {
-            bannerExecutor = new BannerExecutor(this);
-        }
+
         if (interstitialExecutor == null) {
             interstitialExecutor = new InterstitialExecutor(this);
         }
-        if (rewardVideoExecutor == null) {
-            rewardVideoExecutor = new RewardVideoExecutor(this);
-        }
+
 
         PluginResult result = null;
 
@@ -82,55 +73,20 @@ public class AdMob extends CordovaPlugin {
             JSONObject options = inputs.optJSONObject(0);
             result = executeSetOptions(options, callbackContext);
 
-        } else if (Actions.CREATE_BANNER.equals(action)) {
-            JSONObject options = inputs.optJSONObject(0);
-            result = bannerExecutor.prepareAd(options, callbackContext);
-
-        } else if (Actions.DESTROY_BANNER.equals(action)) {
-            result = bannerExecutor.removeAd(callbackContext);
-
-        } else if (Actions.REQUEST_AD.equals(action)) {
-            JSONObject options = inputs.optJSONObject(0);
-            result = bannerExecutor.requestAd(options, callbackContext);
-
-        } else if (Actions.SHOW_AD.equals(action)) {
-            boolean show = inputs.optBoolean(0);
-            result = bannerExecutor.showAd(show, callbackContext);
-
         } else if (Actions.PREPARE_INTERSTITIAL.equals(action)) {
-            JSONObject options = inputs.optJSONObject(0);
-            result = interstitialExecutor.prepareAd(options, callbackContext);
+            if (this.shouldLoadAds) {
 
-        } else if (Actions.CREATE_INTERSTITIAL.equals(action)) {
-            JSONObject options = inputs.optJSONObject(0);
-            result = interstitialExecutor.createAd(options, callbackContext);
-
-        } else if (Actions.REQUEST_INTERSTITIAL.equals(action)) {
-            JSONObject options = inputs.optJSONObject(0);
-            result = interstitialExecutor.requestAd(options, callbackContext);
-
+                JSONObject options = inputs.optJSONObject(0);
+                result = interstitialExecutor.prepareAd(options, callbackContext, shouldLoadAds);
+            } else return false;
         } else if (Actions.SHOW_INTERSTITIAL.equals(action)) {
-            boolean show = inputs.optBoolean(0);
-            result = interstitialExecutor.showAd(show, callbackContext);
+            if (this.shouldLoadAds) {
+                boolean show = inputs.optBoolean(0);
+                result = interstitialExecutor.showAd( callbackContext, shouldLoadAds);
+            } else return false;
 
-        } else if(Actions.IS_INTERSTITIAL_READY.equals(action)) {
-            result = interstitialExecutor.isReady(callbackContext);
-
-        } else if (Actions.CREATE_REWARD_VIDEO.equals(action)) {
-            JSONObject options = inputs.optJSONObject(0);
-            result = rewardVideoExecutor.prepareAd(options, callbackContext);
-
-        } else if (Actions.SHOW_REWARD_VIDEO.equals(action)) {
-            boolean show = inputs.optBoolean(0);
-            result = rewardVideoExecutor.showAd(show, callbackContext);
-
-        } else if(Actions.IS_REWARD_VIDEO_READY.equals(action)) {
-            result = rewardVideoExecutor.isReady(callbackContext);
-
-        } else {
-            Log.d(TAG, String.format("Invalid action passed: %s", action));
-            result = new PluginResult(Status.INVALID_ACTION);
         }
+
 
         if (result != null) {
             callbackContext.sendPluginResult(result);
@@ -149,127 +105,85 @@ public class AdMob extends CordovaPlugin {
     }
 
     public AdRequest buildAdRequest() {
-        AdRequest.Builder builder = new AdRequest.Builder();
-        if (config.isTesting || isRunningInTestLab()) {
-            builder = builder.addTestDevice(AdRequest.DEVICE_ID_EMULATOR).addTestDevice(getDeviceId());
-        }
-
-        if (config.testDeviceList != null) {
-            Iterator<String> iterator = config.testDeviceList.iterator();
-            while (iterator.hasNext()) {
-                builder = builder.addTestDevice(iterator.next());
+        Log.w("buildAdRequest", "buildAdRequest");
+        if (this.shouldLoadAds) {
+            Log.w("buildAdRequest", "buildAdRequestEntrou");
+            AdRequest.Builder builder = new AdRequest.Builder();
+            if (config.isTesting || isRunningInTestLab()) {
+                builder = builder.addTestDevice(AdRequest.DEVICE_ID_EMULATOR).addTestDevice(getDeviceId());
             }
-        }
 
-        Bundle bundle = new Bundle();
-        bundle.putInt("cordova", 1);
-        if (config.adExtras != null) {
-            Iterator<String> it = config.adExtras.keys();
-            while (it.hasNext()) {
-                String key = it.next();
-                try {
-                    bundle.putString(key, config.adExtras.get(key).toString());
-                } catch (JSONException exception) {
-                    Log.w(TAG, String.format("Caught JSON Exception: %s", exception.getMessage()));
+            if (config.testDeviceList != null) {
+                Iterator<String> iterator = config.testDeviceList.iterator();
+                while (iterator.hasNext()) {
+                    builder = builder.addTestDevice(iterator.next());
                 }
             }
-        }
-        builder = builder.addNetworkExtrasBundle(AdMobAdapter.class, bundle);
 
-        if (config.gender != null) {
-            if ("male".compareToIgnoreCase(config.gender) != 0) {
-                builder.setGender(AdRequest.GENDER_MALE);
-            } else if ("female".compareToIgnoreCase(config.gender) != 0) {
-                builder.setGender(AdRequest.GENDER_FEMALE);
-            } else {
-                builder.setGender(AdRequest.GENDER_UNKNOWN);
+            Bundle bundle = new Bundle();
+            bundle.putInt("cordova", 1);
+            if (config.adExtras != null) {
+                Iterator<String> it = config.adExtras.keys();
+                while (it.hasNext()) {
+                    String key = it.next();
+                    try {
+                        bundle.putString(key, config.adExtras.get(key).toString());
+                    } catch (JSONException exception) {
+                        Log.w(TAG, String.format("Caught JSON Exception: %s", exception.getMessage()));
+                    }
+                }
             }
-        }
-        if (config.location != null) {
-            builder.setLocation(config.location);
-        }
-        if ("yes".equals(config.forFamily)) {
-            builder.setIsDesignedForFamilies(true);
-        } else if ("no".equals(config.forFamily)) {
-            builder.setIsDesignedForFamilies(false);
-        }
-        if ("yes".equals(config.forChild)) {
-            builder.tagForChildDirectedTreatment(true);
-        } else if ("no".equals(config.forChild)) {
-            builder.tagForChildDirectedTreatment(false);
-        }
-        if (config.contentURL != null) {
-            builder.setContentUrl(config.contentURL);
-        }
+            builder = builder.addNetworkExtrasBundle(AdMobAdapter.class, bundle);
 
-        return builder.build();
+
+            if (config.contentURL != null) {
+                builder.setContentUrl(config.contentURL);
+            }
+
+            return builder.build();
+        } else  return null;
     }
+
     @Override
     public void onStart() {
         super.onStart();
-       this.shouldLoadAds = 1;
-        Log.i("onStart", "onStartonStart");
+        shouldLoadAds= true;
+        Log.w("shouldLoadAds",  String.valueOf(shouldLoadAds));
     }
 
     @Override
     public void onStop() {
-        this.shouldLoadAds = 0;
-        Log.i("onStop", "onStoponStop");
+        shouldLoadAds= false;
+        readyCallbackContext = null;
+        Log.w("shouldLoadAds",  String.valueOf(shouldLoadAds));
+        super.onStop();
     }
-
-    public void setHealth(int monsterhealth){
-        Log.i("setHealth",  String.valueOf(monsterhealth));
-        shouldLoadAds = monsterhealth;
-    }
-
 
 
     @Override
     public void onPause(boolean multitasking) {
-        this.shouldLoadAds = 0;
-        Log.i("ONpause", "testeONpauseinterstitial");
-        if (bannerExecutor != null) {
-            bannerExecutor.pauseAd();
-        }
-
-       if (interstitialExecutor != null) {
-            Log.i("onPause", "destroyinterstitialExecutor");
-           interstitialExecutor.destroy();
-            interstitialExecutor = null;
-       }
-        super.onPause(multitasking);
+        super.onPause(false);
+        interstitialExecutor.executeClean();
+        readyCallbackContext = null;
+        shouldLoadAds = false;
+        Log.w("interstitialAd.onPause", String.valueOf(shouldLoadAds));
     }
-
-    @Override
-    public void onResume(boolean multitasking) {
-        super.onResume(multitasking);
-        isGpsAvailable = (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(cordova.getActivity()) == ConnectionResult.SUCCESS);
-        if (bannerExecutor != null) {
-            bannerExecutor.resumeAd();
-        }
-    }
-
 
 
     @Override
     public void onDestroy() {
         Log.i("onDestroy", "onDestroyinterstitialExecutor");
-        if (bannerExecutor != null) {
-            bannerExecutor.destroy();
-            bannerExecutor = null;
-        }
+
         if (interstitialExecutor != null) {
             interstitialExecutor.destroy();
             interstitialExecutor = null;
+
         }
-        if (rewardVideoExecutor != null) {
-            rewardVideoExecutor.destroy();
-            rewardVideoExecutor = null;
-        }
+
         super.onDestroy();
     }
 
-    @NonNull
+    //@NonNull
     private String getDeviceId() {
         // This will request test ads on the emulator and deviceby passing this hashed device ID.
         String ANDROID_ID = Settings.Secure.getString(cordova.getActivity().getContentResolver(), Settings.Secure.ANDROID_ID);

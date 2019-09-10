@@ -2,91 +2,83 @@ package name.ratson.cordova.admob.interstitial;
 
 import android.util.Log;
 
+
 import com.google.android.gms.ads.InterstitialAd;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
+import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
 import org.json.JSONObject;
 
 import name.ratson.cordova.admob.AbstractExecutor;
 import name.ratson.cordova.admob.AdMob;
 import name.ratson.cordova.admob.AdMobConfig;
+;
 
 public class InterstitialExecutor extends AbstractExecutor {
     /**
      * The interstitial ad to display to the user.
      */
-    private InterstitialAd interstitialAd;
+    private static InterstitialAd interstitialAd;
 
     public InterstitialExecutor(AdMob plugin) {
         super(plugin);
     }
+    CordovaPlugin test = new CordovaPlugin();
 
-    @Override
+   @Override
     public String getAdType() {
+
         return "interstitial";
     }
 
-    public PluginResult prepareAd(JSONObject options, CallbackContext callbackContext) {
+
+    public PluginResult prepareAd(JSONObject options, CallbackContext callbackContext, boolean shouldLoadAds) {
         AdMobConfig config = plugin.config;
         CordovaInterface cordova = plugin.cordova;
         config.setInterstitialOptions(options);
-
         final CallbackContext delayCallback = callbackContext;
+
         cordova.getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 AdMobConfig config = plugin.config;
                 CordovaInterface cordova = plugin.cordova;
 
+
                 destroy();
-                interstitialAd = new InterstitialAd(cordova.getActivity());
-                interstitialAd.setAdUnitId(config.getInterstitialAdUnitId());
-                interstitialAd.setAdListener(new InterstitialListener(InterstitialExecutor.this));
-                Log.i("interstitial", config.getInterstitialAdUnitId());
-                interstitialAd.loadAd(plugin.buildAdRequest());
-                delayCallback.success();
+                if (shouldLoadAds) {
+                    interstitialAd = new InterstitialAd(cordova.getActivity());
+                    interstitialAd.setAdUnitId(config.getInterstitialAdUnitId());
+                    interstitialAd.setAdListener(new InterstitialListener(InterstitialExecutor.this));
+
+                    interstitialAd.loadAd(plugin.buildAdRequest());
+
+                    delayCallback.success();
+                } else
+                    delayCallback.isFinished();
             }
         });
         return null;
     }
 
-    /**
-     * Parses the createAd interstitial view input parameters and runs the createAd interstitial
-     * view action on the UI thread.  If this request is successful, the developer
-     * should make the requestAd call to request an ad for the banner.
-     *
-     * @param options The JSONArray representing input parameters.  This function
-     *                expects the first object in the array to be a JSONObject with the
-     *                input parameters.
-     * @return A PluginResult representing whether or not the banner was created
-     * successfully.
-     */
-    public PluginResult createAd(JSONObject options, CallbackContext callbackContext) {
-        AdMobConfig config = plugin.config;
-        CordovaInterface cordova = plugin.cordova;
-
-        config.setInterstitialOptions(options);
-
-        final CallbackContext delayCallback = callbackContext;
-        cordova.getActivity().runOnUiThread(new Runnable() {
+    public static boolean executeClean() {
+        plugin.cordova.getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                AdMobConfig config = plugin.config;
-                CordovaInterface cordova = plugin.cordova;
-
-                destroy();
-                interstitialAd = new InterstitialAd(cordova.getActivity());
-                interstitialAd.setAdUnitId(config.getInterstitialAdUnitId());
-                interstitialAd.setAdListener(new InterstitialListener(InterstitialExecutor.this));
-                Log.w("interstitial", config.getInterstitialAdUnitId());
-                interstitialAd.loadAd(plugin.buildAdRequest());
-                delayCallback.success();
+                if (interstitialAd != null) {
+                    interstitialAd.setAdListener(null);
+                    interstitialAd = null;
+                    Log.w("clear", "clear");
+                }
             }
         });
-        return null;
+
+        return true;
     }
+
+
 
     @Override
     public void destroy() {
@@ -96,80 +88,56 @@ public class InterstitialExecutor extends AbstractExecutor {
         }
     }
 
-    public PluginResult requestAd(JSONObject options, CallbackContext callbackContext) {
+
+
+//    public static void pause(int ms) {
+//        try {
+//            Thread.sleep(ms);
+//        } catch (InterruptedException e) {
+//            System.err.format("IOException: %s%n", e);
+//        }
+//    }
+
+
+
+    public PluginResult showAd(final CallbackContext callbackContext, boolean shouldLoadAds) {
         CordovaInterface cordova = plugin.cordova;
+        if (shouldLoadAds) {
 
-        plugin.config.setInterstitialOptions(options);
-
-        if (interstitialAd == null) {
-            callbackContext.error("interstitialAd is null, call createInterstitialView first");
-            return null;
-        }
-
-        final CallbackContext delayCallback = callbackContext;
-        cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (interstitialAd == null) {
-                    return;
-                }
-                interstitialAd.loadAd(plugin.buildAdRequest());
-
-                delayCallback.success();
+            if (interstitialAd == null) {
+                return new PluginResult(PluginResult.Status.ERROR, "interstitialAd is null, call createInterstitialView first.");
             }
-        });
 
-        return null;
-    }
+                cordova.getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
 
-    public PluginResult showAd(final boolean show, final CallbackContext callbackContext) {
-        if (interstitialAd == null) {
-            return new PluginResult(PluginResult.Status.ERROR, "interstitialAd is null, call createInterstitialView first.");
-        }
-        CordovaInterface cordova = plugin.cordova;
+                        if (interstitialAd == null) {
+                            return;
+                        }
 
-        cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (interstitialAd == null) {
-                    return;
-                }
-                AdMobConfig config = plugin.config;
+                        if (!plugin.cordova.getActivity().isFinishing() && interstitialAd != null && shouldLoadAds &&  interstitialAd.isLoaded()) {
+                            Log.w("cancelou", String.valueOf(plugin.cordova.getActivity().isFinishing()));
+                            try{  interstitialAd.show();} catch (Exception w) {}
+                        } else if(plugin.cordova.getActivity().isFinishing()){
+                            Log.w("cancelou", String.valueOf(plugin.cordova.getActivity().isFinishing()));
+                            destroy();
 
-                if (interstitialAd.isLoaded()) {
-                    interstitialAd.show();
-                    if (callbackContext != null) {
+                        }
+                        else{
+                            Log.d("TAG"," Interstitial not loaded");
+                        }
+
+
                         callbackContext.success();
+
                     }
-                } else if (!config.autoShowInterstitial) {
-                    if (callbackContext != null) {
-                        callbackContext.error("Interstital not ready yet");
-                    }
-                }
-            }
-        });
+                });
 
-        return null;
+        }
+            return null;
+
     }
 
-    public PluginResult isReady(final CallbackContext callbackContext) {
-        CordovaInterface cordova = plugin.cordova;
 
-        cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (interstitialAd != null && interstitialAd.isLoaded()) {
-                    callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, true));
-                } else {
-                    callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, false));
-                }
-            }
-        });
-
-        return null;
-    }
-
-    boolean shouldAutoShow() {
-        return plugin.config.autoShowInterstitial;
-    }
 }

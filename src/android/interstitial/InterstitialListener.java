@@ -3,7 +3,7 @@ package name.ratson.cordova.admob.interstitial;
 import android.util.Log;
 
 import com.google.android.gms.ads.AdListener;
-import name.ratson.cordova.admob.AdMob;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -15,8 +15,6 @@ class InterstitialListener extends AdListener {
     InterstitialListener(InterstitialExecutor executor) {
         this.executor = executor;
     }
-
-   public AdMob tset = new AdMob();
 
     @Override
     public void onAdFailedToLoad(int errorCode) {
@@ -49,7 +47,10 @@ class InterstitialListener extends AdListener {
         Log.w("AdMob", "InterstitialAdLoaded");
         executor.fireAdEvent("admob.interstitial.events.LOAD");
         executor.fireAdEvent("onReceiveInterstitialAd");
-        Log.w("onAdLoaded", String.valueOf(tset.shouldLoadAds));
+
+        if (executor.shouldAutoShow()) {
+            executor.showAd(true, null);
+        }
     }
 
     @Override

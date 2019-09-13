@@ -10,7 +10,7 @@ import com.google.ads.mediation.admob.AdMobAdapter;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.mediation.admob.AdMobExtras;
 import com.google.android.gms.common.ConnectionResult;
-//import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.GoogleApiAvailability;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
@@ -40,7 +40,7 @@ import static com.google.ads.AdRequest.LOGTAG;
  */
 public class AdMob extends CordovaPlugin {
 
-    private HashMap<String, com.rjfun.cordova.admob.AdMobMediation> mediations = new HashMap<String, com.rjfun.cordova.admob.AdMobMediation>();
+    private HashMap<String, name.ratson.cordova.admob.interstitial.AdMobMediation> mediations = new HashMap<String, name.ratson.cordova.admob.interstitial.AdMobMediation>();
     /**
      * Common tag used for logging statements.
      */
@@ -55,7 +55,7 @@ public class AdMob extends CordovaPlugin {
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
-     //   isGpsAvailable = (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(cordova.getActivity()) == ConnectionResult.SUCCESS);
+        isGpsAvailable = (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(cordova.getActivity()) == ConnectionResult.SUCCESS);
         Log.w(TAG, String.format("isGooglePlayServicesAvailable: %s", isGpsAvailable ? "true" : "false"));
     }
 
@@ -147,7 +147,7 @@ public class AdMob extends CordovaPlugin {
         Iterator<String> it = mediations.keySet().iterator();
         while(it.hasNext()) {
             String key = it.next();
-            com.rjfun.cordova.admob.AdMobMediation m = mediations.get(key);
+            name.ratson.cordova.admob.interstitial.AdMobMediation m = mediations.get(key);
             if(m != null) {
                 builder = m.joinAdRequest(builder);
             }
@@ -245,7 +245,7 @@ public class AdMob extends CordovaPlugin {
     @Override
     public void onResume(boolean multitasking) {
         super.onResume(multitasking);
-      //  isGpsAvailable = (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(cordova.getActivity()) == ConnectionResult.SUCCESS);
+        isGpsAvailable = (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(cordova.getActivity()) == ConnectionResult.SUCCESS);
 
     }
 
@@ -258,7 +258,7 @@ public class AdMob extends CordovaPlugin {
         while(it.hasNext()) {
             Log.i("onPause", "1212");
             String key = it.next();
-            com.rjfun.cordova.admob.AdMobMediation m = mediations.get(key);
+            name.ratson.cordova.admob.interstitial.AdMobMediation m = mediations.get(key);
             if(m != null) m.onDestroy();
         }
         if (interstitialExecutor != null) {
